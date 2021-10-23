@@ -1,0 +1,97 @@
+PROJECT:
+
+check exilir design patterns in https://github.com/christopheradams/elixir_style_guide
+
+01. create new project: mix phx.new heat_tags --no-html --no-webpack
+02. run: cd heat_tags
+03. run: mix ecto.create
+04. run: mix phx.server
+05. test by going to http://localhost:4000/dashboard/home
+
+PREPARE FIRST API
+
+06. in /lib/heat_tags_web/router.ex add route:
+        post "/message", MessagesController, :create
+
+07. in /lib/heat_tags_web/controllers create file messages_controller.ex
+08. test sending a request to http://localhost:4000/api/message w/ body:
+        {
+            "email": "email@email.com",
+            "message": "Mensagem uhuuull",
+            "username": "fulano_silva"
+        }
+
+CREATE FIRST MIGRATION
+
+09. run: mix ecto.gen.migration create_messages
+10. migration should be created in /priv/repo/migrations
+11. add table changes in the created migration
+12. save migration file
+13. run migration: mix ecto.migrate
+
+CREATE SCHEMA
+
+14. create file /lib/heat_tags/message.ex
+15. open interactive Elixir running: iex -S mix
+    * this is like a Node's REPL but for Elixir's, it runs elixir in the command prompt
+    
+16. run: %HeatTags.Message{}
+17. this should show the struct for HeatTags.Message
+18. define a changeset inside HeatTags.Message
+19. inside iex, run: recompile
+20. check if changeset is ok, inside iex, run: HeatTags.Message.changeset(%{})
+    look for valid?: true in the response for the command above
+
+21. see documentation for more: in iex, run h Ecto.Changeset.validate_required
+    or go to https://hexdocs.pm/ecto/Ecto.Changeset.html
+
+22. if we go to iex and type "HeatTags.Repo." and press . + tab we'll see all actions we have
+    for using the db
+
+CREATE PERSISTANCE
+
+23. create folder /lib/heat_tags/messages and create file create.ex
+24. create in create.ex the module that will create a new Message
+25. back in /lib/heat_tags_web/controllers/message_controller.ex, use module Create for creation
+26. create return view messages_view.ex in /lib/heat_tags_web/views
+    it must have the same name as the controller because when you cite create.json inside the controller
+    phx will automatically refer to this view!
+
+27. declare how phx should render the Message struct as JSON adding line to lib/heat_tags/message.ex
+        @derive {Jason.Encoder, only: [:id] ++ @required_params}
+
+28. run 'mix phx.server' and test it in postman
+29. define func render inside lib/heat_tags_web/views/error_view.ex
+30. inside iex, to see all Message saved in db run:
+    alias HeatTags.Repo
+    alias HeatTags.Message
+    Repo.all(Message)
+
+CREATE WORD COUNT SERVICE
+
+31. create file lib/heat_tags/messages/get.ex
+
+CREATE CUNCURRENT PROCESS
+
+32. create folder (actually called context) and file lib/heat_tags/tags/count.ex
+    This is the file where the magic happens.
+
+CREATE CRON FUNCTION | docs: https://github.com/quantum-elixir/quantum-core | https://hexdocs.pm/quantum/readme.html
+
+33. in file mix.exs, add line: {:quantum, "~> 3.0"}
+34. if this new dependency do not download automatically, run: mix deps.get
+35. start service again w/ mix deps.get
+36. create file lib/heat_tags/scheduler.ex and paste code from https://github.com/quantum-elixir/quantum-core
+        defmodule HeatTags.Scheduler do
+            use Quantum, otp_app: :heat_tags
+        end
+
+37. in lib/heat_tags/application.ex add line:
+      HeatTags.Scheduler
+    this will start the Scheduler job and monitor it. If the process dies, it will start it again
+
+38. in config/config.exs add new config
+        config :heat_tags, HeatTags.Scheduler, jobs: [
+        # {"time", {module, function, params}}
+            {"* * * * *",      {HeatTags.Tegs.Count, :call, []}},
+        ]
